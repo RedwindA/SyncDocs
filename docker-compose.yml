@@ -1,0 +1,23 @@
+services:
+  syncdocs-app:
+    # Build the image using the Dockerfile in the current directory
+    build: .
+    # Name the container
+    container_name: syncdocs_app
+    # Restart policy
+    restart: always
+    # Load environment variables from a .env file in the same directory
+    # Make sure to create a .env file based on .env.example
+    env_file:
+      - .env
+    # Map the exposed port (8080 inside container) to a host port (e.g., 8080)
+    ports:
+      - 127.0.0.1:"${SERVER_PORT:-8080}:${SERVER_PORT:-8080}" # Use SERVER_PORT from .env, default to 8080
+    # Optional: Define networks if needed to connect to an external DB network
+    networks:
+      - 1panel-network
+
+# Optional: Define external networks if connecting to an existing DB network
+networks:
+  1panel-network:
+    external: true
