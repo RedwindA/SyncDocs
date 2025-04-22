@@ -9,7 +9,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     name: 'Home',
     component: HomeView,
-    meta: { title: 'Monitored Repositories' }
+    meta: { title: 'SyncDocs' }
   },
   {
     path: '/repo/:id/view', // Route for viewing aggregated content
