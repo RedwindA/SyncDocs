@@ -4,6 +4,8 @@ services:
     build: .
     # Name the container
     container_name: syncdocs_app
+    # Name the image
+    image: austinleo/syncdocs_app:latest
     # Restart policy
     restart: always
     # Load environment variables from a .env file in the same directory

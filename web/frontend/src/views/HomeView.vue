@@ -220,19 +220,20 @@ onUnmounted(() => {
 }
 
 .loading {
-  background-color: #e0e0e0;
+  background-color: #333; /* Darker background */
+  color: #eee; /* Lighter text */
 }
 
 .error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background-color: #5a2d2d; /* Darker red background */
+  color: #f8d7da; /* Lighter red text */
+  border: 1px solid #a71d2a; /* Darker border */
 }
 
 .no-repos {
-    background-color: #e2e3e5;
-    color: #383d41;
-    border: 1px solid #d6d8db;
+    background-color: #333; /* Darker background */
+    color: #ccc; /* Lighter text */
+    border: 1px solid #555; /* Darker border */
     text-align: center;
 }
 
@@ -243,24 +244,34 @@ onUnmounted(() => {
 }
 
 .repo-table th, .repo-table td {
-  border: 1px solid #ddd;
+  border: 1px solid #444; /* Darker border */
   padding: 8px;
   text-align: left;
   vertical-align: top; /* Align content top */
+  color: #ccc; /* Default light text for cells */
 }
 
 .repo-table th {
-  background-color: #f2f2f2;
+  background-color: #333; /* Dark background for header */
   font-weight: bold;
+  color: #eee; /* Light text for header */
 }
 
 .repo-table tbody tr:nth-child(even) {
-  background-color: #f9f9f9;
+  background-color: #2c2c2c; /* Slightly different dark for striping */
 }
 
 .repo-table tbody tr:hover {
-  background-color: #f1f1f1;
+  background-color: #404040; /* Darker hover */
 }
+
+.repo-table td a { /* Ensure links in table are visible */
+    color: #87cefa; /* Light blue for links */
+}
+.repo-table td a:hover {
+    color: #add8e6; /* Lighter blue on hover */
+}
+
 
 .status-badge {
   padding: 3px 8px;
@@ -316,17 +327,18 @@ onUnmounted(() => {
   border-radius: 0.2rem;
 }
 
-.btn-primary { color: #fff; background-color: #007bff; border-color: #007bff; }
-.btn-primary:hover { background-color: #0056b3; border-color: #0056b3; }
-.btn-secondary { color: #fff; background-color: #6c757d; border-color: #6c757d; }
-.btn-secondary:hover { background-color: #5a6268; border-color: #545b62; }
-.btn-info { color: #fff; background-color: #17a2b8; border-color: #17a2b8; }
-.btn-info:hover { background-color: #138496; border-color: #117a8b; }
-.btn-success { color: #fff; background-color: #28a745; border-color: #28a745; }
-.btn-success:hover { background-color: #218838; border-color: #1e7e34; }
-.btn-warning { color: #212529; background-color: #ffc107; border-color: #ffc107; }
-.btn-warning:hover { background-color: #e0a800; border-color: #d39e00; }
-.btn-danger { color: #fff; background-color: #dc3545; border-color: #dc3545; }
-.btn-danger:hover { background-color: #c82333; border-color: #bd2130; }
+/* Dark Theme Button Adjustments */
+.btn-primary { color: #fff; background-color: #0056b3; border-color: #0056b3; } /* Darker blue */
+.btn-primary:hover { background-color: #004494; border-color: #00357a; }
+.btn-secondary { color: #fff; background-color: #5a6268; border-color: #5a6268; } /* Darker gray */
+.btn-secondary:hover { background-color: #495057; border-color: #3d4349; }
+.btn-info { color: #fff; background-color: #117a8b; border-color: #117a8b; } /* Darker cyan */
+.btn-info:hover { background-color: #0f6674; border-color: #0e5f6b; }
+.btn-success { color: #fff; background-color: #218838; border-color: #218838; } /* Darker green */
+.btn-success:hover { background-color: #1e7e34; border-color: #1c7430; }
+.btn-warning { color: #fff; background-color: #e0a800; border-color: #e0a800; } /* Darker yellow, white text */
+.btn-warning:hover { background-color: #d39e00; border-color: #c69500; }
+.btn-danger { color: #fff; background-color: #c82333; border-color: #c82333; } /* Darker red */
+.btn-danger:hover { background-color: #bd2130; border-color: #b21f2d; }
 
 </style>

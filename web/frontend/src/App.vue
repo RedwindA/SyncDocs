@@ -29,19 +29,19 @@
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.87); /* Dark theme text color */
 }
 
 .app-header {
-  background-color: #f8f9fa;
+  background-color: #1a1a1a; /* Dark background */
   padding: 10px 20px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid #444; /* Dark theme border */
   text-align: center;
 }
 
 .app-header h1 {
     margin: 0;
-    color: #007bff; /* Example color */
+    color: #646cff; /* Use link color for visibility */
 }
 
 .app-main {
@@ -50,12 +50,12 @@
 }
 
 .app-footer {
-  background-color: #f8f9fa;
+  background-color: #1a1a1a; /* Dark background */
   padding: 10px 20px;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid #444; /* Dark theme border */
   text-align: center;
   font-size: 0.9em;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.6); /* Lighter text for dark background */
   margin-top: auto; /* Pushes footer to the bottom */
 }
 
