@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/gin-contrib/gzip" // Import gzip middleware
 	"github.com/gin-gonic/gin"
 
 	"syncdocs/internal/database"
@@ -22,8 +23,9 @@ func RegisterRoutes(router *gin.RouterGroup, store *database.RepositoryStore, sy
 		repoRoutes.DELETE("/:id", apiHandler.DeleteRepositoryHandler) // Delete repository
 
 		// Actions for a specific repository
-		repoRoutes.POST("/:id/sync", apiHandler.TriggerSyncHandler)       // Manually trigger sync
-		repoRoutes.GET("/:id/download", apiHandler.DownloadRepositoryContentHandler) // Download aggregated content
+		repoRoutes.POST("/:id/sync", apiHandler.TriggerSyncHandler) // Manually trigger sync
+		// Apply gzip compression to the download route
+		repoRoutes.GET("/:id/download", gzip.Gzip(gzip.DefaultCompression), apiHandler.DownloadRepositoryContentHandler) // Download aggregated content
 	}
 
 	// Add other routes here if needed (e.g., system status)
