@@ -248,7 +248,19 @@ func (a *API) DownloadRepositoryContentHandler(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Header("Content-Type", "text/markdown; charset=utf-8") // Correct MIME type for Markdown
 
-	c.String(http.StatusOK, repo.AggregatedContent.String)
+	// Set status code
+	c.Status(http.StatusOK)
+
+	// Stream the content
+	reader := strings.NewReader(repo.AggregatedContent.String)
+	_, err = io.Copy(c.Writer, reader)
+	if err != nil {
+		// Log the error, as headers and status might have already been sent
+		log.Printf("Error streaming repository content for ID %d: %v", id, err)
+		// Attempt to write an error to the client if possible, though it might not work
+		// if headers/status already sent. Gin might handle this by aborting.
+		// c.Error(err) // This might be too late or inappropriate here.
+	}
 }
 
 // TriggerSyncHandler handles POST /api/repositories/:id/sync requests.
