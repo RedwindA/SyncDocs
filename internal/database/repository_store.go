@@ -28,7 +28,7 @@ func NewRepositoryStore(db *pgxpool.Pool) *RepositoryStore {
 
 // CreateRepository inserts a new repository record into the database.
 // It parses the owner and repo name from the URL.
-func (s *RepositoryStore) CreateRepository(ctx context.Context, payload RepositoryCreatePayload) (*Repository, error) {
+func (s *RepositoryStore) CreateRepository(ctx context.Context, payload RepositoryCreatePayload, branchToStore string) (*Repository, error) {
 	owner, repoName, err := gh.ParseRepoURL(payload.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository URL: %w", err)
@@ -38,9 +38,9 @@ func (s *RepositoryStore) CreateRepository(ctx context.Context, payload Reposito
 	extensions := strings.ToLower(strings.ReplaceAll(payload.Extensions, " ", ""))
 
 	query := `
-		INSERT INTO repositories (url, owner, repo_name, docs_path, extensions, last_sync_status)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, url, owner, repo_name, docs_path, extensions, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
+		INSERT INTO repositories (url, owner, repo_name, docs_path, extensions, branch, last_sync_status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, url, owner, repo_name, docs_path, extensions, branch, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
 	`
 	var repo Repository
 	err = s.db.QueryRow(ctx, query,
@@ -49,7 +49,8 @@ func (s *RepositoryStore) CreateRepository(ctx context.Context, payload Reposito
 		repoName,
 		payload.DocsPath,
 		extensions,
-		"pending", // Initial status
+		branchToStore, // Use the determined branch
+		"pending",   // Initial status
 	).Scan(
 		&repo.ID,
 		&repo.URL,
@@ -57,6 +58,7 @@ func (s *RepositoryStore) CreateRepository(ctx context.Context, payload Reposito
 		&repo.RepoName,
 		&repo.DocsPath,
 		&repo.Extensions,
+		&repo.Branch,
 		&repo.AggregatedContent,
 		&repo.LastSyncStatus,
 		&repo.LastSyncTime,
@@ -80,7 +82,7 @@ func (s *RepositoryStore) CreateRepository(ctx context.Context, payload Reposito
 // GetRepositoryByID retrieves a single repository by its ID.
 func (s *RepositoryStore) GetRepositoryByID(ctx context.Context, id int) (*Repository, error) {
 	query := `
-		SELECT id, url, owner, repo_name, docs_path, extensions, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
+		SELECT id, url, owner, repo_name, docs_path, extensions, branch, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
 		FROM repositories
 		WHERE id = $1
 	`
@@ -92,6 +94,7 @@ func (s *RepositoryStore) GetRepositoryByID(ctx context.Context, id int) (*Repos
 		&repo.RepoName,
 		&repo.DocsPath,
 		&repo.Extensions,
+		&repo.Branch,
 		&repo.AggregatedContent,
 		&repo.LastSyncStatus,
 		&repo.LastSyncTime,
@@ -114,7 +117,7 @@ func (s *RepositoryStore) GetRepositoryByID(ctx context.Context, id int) (*Repos
 // ListRepositories retrieves a list of all repositories (without aggregated content).
 func (s *RepositoryStore) ListRepositories(ctx context.Context) ([]RepositoryListItem, error) {
 	query := `
-		SELECT id, url, docs_path, extensions, last_sync_status, last_sync_time, last_sync_error, updated_at
+		SELECT id, url, docs_path, extensions, branch, last_sync_status, last_sync_time, last_sync_error, updated_at
 		FROM repositories
 		ORDER BY created_at DESC
 	`
@@ -129,12 +132,14 @@ func (s *RepositoryStore) ListRepositories(ctx context.Context) ([]RepositoryLis
 	for rows.Next() {
 		var item RepositoryListItem
 		var lastSyncError sql.NullString // Scan into NullString first
+		var branch sql.NullString        // Scan branch into NullString
 
 		err := rows.Scan(
 			&item.ID,
 			&item.URL,
 			&item.DocsPath,
 			&item.Extensions,
+			&branch, // Scan into sql.NullString
 			&item.LastSyncStatus,
 			&item.LastSyncTime,
 			&lastSyncError, // Scan into NullString
@@ -146,6 +151,7 @@ func (s *RepositoryStore) ListRepositories(ctx context.Context) ([]RepositoryLis
 			continue // Skip problematic row for now
 		}
 		item.LastSyncError = lastSyncError.String // Convert NullString to string
+		item.Branch = branch.String              // Convert NullString to string for branch
 		items = append(items, item)
 	}
 
@@ -166,7 +172,7 @@ func (s *RepositoryStore) UpdateRepository(ctx context.Context, id int, payload 
 		UPDATE repositories
 		SET docs_path = $1, extensions = $2, updated_at = $3
 		WHERE id = $4
-		RETURNING id, url, owner, repo_name, docs_path, extensions, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
+		RETURNING id, url, owner, repo_name, docs_path, extensions, branch, aggregated_content, last_sync_status, last_sync_time, last_sync_error, created_at, updated_at
 	`
 	var repo Repository
 	err := s.db.QueryRow(ctx, query,
@@ -181,6 +187,7 @@ func (s *RepositoryStore) UpdateRepository(ctx context.Context, id int, payload 
 		&repo.RepoName,
 		&repo.DocsPath,
 		&repo.Extensions,
+		&repo.Branch,
 		&repo.AggregatedContent,
 		&repo.LastSyncStatus,
 		&repo.LastSyncTime,
@@ -257,7 +264,7 @@ func (s *RepositoryStore) UpdateSyncSuccess(ctx context.Context, id int, content
 // GetAllRepositoriesForSync retrieves all repositories to be processed by the syncer.
 func (s *RepositoryStore) GetAllRepositoriesForSync(ctx context.Context) ([]Repository, error) {
 	query := `
-		SELECT id, url, owner, repo_name, docs_path, extensions
+		SELECT id, url, owner, repo_name, docs_path, extensions, branch
 		FROM repositories
 		ORDER BY id ASC -- Or any other order suitable for processing
 	`
@@ -278,6 +285,7 @@ func (s *RepositoryStore) GetAllRepositoriesForSync(ctx context.Context) ([]Repo
 			&repo.RepoName,
 			&repo.DocsPath,
 			&repo.Extensions,
+			&repo.Branch,
 		)
 		if err != nil {
 			log.Printf("Error scanning repository row for sync: %v", err)

@@ -1,0 +1,2 @@
+ALTER TABLE repositories
+ADD COLUMN branch VARCHAR(255) DEFAULT NULL;

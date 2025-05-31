@@ -71,7 +71,7 @@ func main() {
 	apiGroup := router.Group("/api", authMiddleware)
 	{
 		// Register API routes, passing the authenticated group and dependencies
-		api.RegisterRoutes(apiGroup, repoStore, appSyncer) // Pass repoStore and appSyncer
+		api.RegisterRoutes(apiGroup, repoStore, appSyncer, githubClient) // Pass repoStore, appSyncer, and githubClient
 	}
 
 	// Serve frontend static files

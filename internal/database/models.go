@@ -14,6 +14,7 @@ type Repository struct {
 	RepoName          string         `db:"repo_name"`
 	DocsPath          string         `db:"docs_path"`
 	Extensions        string         `db:"extensions"` // Comma-separated list
+	Branch            string         `db:"branch"`               // Branch to sync from
 	AggregatedContent sql.NullString `db:"aggregated_content"` // Use sql.NullString for potentially NULL TEXT field
 	LastSyncStatus    string         `db:"last_sync_status"`   // e.g., pending, success, failed, syncing
 	LastSyncTime      sql.NullTime   `db:"last_sync_time"`     // Use sql.NullTime for potentially NULL TIMESTAMPTZ
@@ -29,6 +30,7 @@ type RepositoryListItem struct {
 	URL            string       `json:"url"`
 	DocsPath       string       `json:"docs_path"`
 	Extensions     string       `json:"extensions"`
+	Branch         string       `json:"branch,omitempty"`
 	LastSyncStatus string       `json:"last_sync_status"`
 	LastSyncTime   sql.NullTime `json:"last_sync_time"` // Keep as sql.NullTime for JSON marshalling
 	LastSyncError  string       `json:"last_sync_error"` // Convert NullString to string for simpler JSON
@@ -40,6 +42,7 @@ type RepositoryCreatePayload struct {
 	URL        string `json:"url" binding:"required,url"`
 	DocsPath   string `json:"docs_path" binding:"required"`
 	Extensions string `json:"extensions" binding:"required"` // e.g., "md,mdx"
+	Branch     string `json:"branch,omitempty"`              // Optional: defaults to repo's default branch if not provided
 }
 
 // RepositoryUpdatePayload defines the structure for updating an existing repository entry.

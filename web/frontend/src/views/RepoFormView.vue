@@ -8,9 +8,10 @@ const route = useRoute();
 const router = useRouter();
 
 const formData = ref<RepositoryCreatePayload | RepositoryUpdatePayload>({
-  url: '', // Only for create mode
-  docs_path: '',
-  extensions: 'md,mdx', // Default value
+	url: '', // Only for create mode
+	docs_path: '',
+	extensions: 'md,mdx', // Default value
+	branch: '', // Only for create mode, add branch
 });
 
 const isLoading = ref(false);
@@ -31,11 +32,13 @@ async function fetchRepoDataForEdit() {
     // Fetch the full repo details to populate the form
     const repo = await apiService.getRepository(repoId.value);
     // Populate form data for editing (URL is not editable)
+    // Populate form data for editing (URL and branch are not editable here)
     formData.value = {
-      docs_path: repo.docs_path,
-      extensions: repo.extensions,
+    	docs_path: repo.docs_path,
+    	extensions: repo.extensions,
+    	// branch is not part of RepositoryUpdatePayload, so it's fine
     };
-  } catch (error: any) {
+    } catch (error: any) {
     console.error(`Failed to fetch repository details for editing (ID ${repoId.value}):`, error);
      if (error.response && error.response.status === 404) {
         errorMessage.value = `Repository with ID ${repoId.value} not found for editing.`;
@@ -90,7 +93,7 @@ watch(() => route.params.id, (newId, oldId) => {
         fetchRepoDataForEdit();
     } else if (!newId) {
         // Reset form if navigating back to 'new' mode (or handle differently)
-        formData.value = { url: '', docs_path: '', extensions: 'md,mdx' };
+        formData.value = { url: '', docs_path: '', extensions: 'md,mdx', branch: '' };
         pageTitle.value = 'Add New Repository';
         errorMessage.value = null;
     }
@@ -119,9 +122,21 @@ watch(() => route.params.id, (newId, oldId) => {
           :disabled="isLoading"
         />
         <small>Example: https://github.com/vuejs/docs</small>
-      </div>
-
-       <div class="form-group" v-if="isEditMode">
+         </div>
+      
+         <div class="form-group" v-if="!isEditMode">
+        <label for="repo-branch">Branch (Optional):</label>
+        <input
+          type="text"
+          id="repo-branch"
+          v-model="(formData as RepositoryCreatePayload).branch"
+          placeholder="e.g., main, develop"
+          :disabled="isLoading"
+        />
+        <small>Leave empty to use the default branch of the repository.</small>
+         </div>
+      
+          <div class="form-group" v-if="isEditMode">
         <label>GitHub Repository URL:</label>
         <p><i>URL cannot be changed after creation.</i></p>
       </div>

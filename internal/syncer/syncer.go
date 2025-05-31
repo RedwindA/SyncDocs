@@ -73,14 +73,14 @@ func (s *Syncer) SyncRepositoryByID(ctx context.Context, id int) error {
 	}
 
 	// 3. Get file list from GitHub
-	log.Printf("Fetching file list for %s/%s path %s", repo.Owner, repo.RepoName, repo.DocsPath)
-	filesInfo, err := s.GithubClient.GetRepoContentsRecursive(ctx, repo.Owner, repo.RepoName, repo.DocsPath)
+	log.Printf("Fetching file list for %s/%s (branch: %s) path %s", repo.Owner, repo.RepoName, repo.Branch, repo.DocsPath)
+	filesInfo, err := s.GithubClient.GetRepoContentsRecursive(ctx, repo.Owner, repo.RepoName, repo.DocsPath, repo.Branch)
 	if err != nil {
-		log.Printf("Error getting repo contents for %d: %v", id, err)
-		_ = s.Store.UpdateSyncStatus(ctx, id, "failed", fmt.Errorf("failed to list GitHub repository contents: %w", err))
+		log.Printf("Error getting repo contents for %d (branch: %s): %v", id, repo.Branch, err)
+		_ = s.Store.UpdateSyncStatus(ctx, id, "failed", fmt.Errorf("failed to list GitHub repository contents (branch: %s): %w", repo.Branch, err))
 		return err
 	}
-	log.Printf("Found %d potential files/dirs for repo %d", len(filesInfo), id)
+	log.Printf("Found %d potential files/dirs for repo %d (branch: %s)", len(filesInfo), id, repo.Branch)
 
 
 	// 4. Filter files by extension
@@ -122,17 +122,17 @@ func (s *Syncer) SyncRepositoryByID(ctx context.Context, id int) error {
 	var aggregatedContent strings.Builder
 	totalFilesFetched := 0
 	for _, fileInfo := range filesToFetch {
-		log.Printf("Fetching content for file: %s (Repo ID: %d)", fileInfo.Path, id)
+		log.Printf("Fetching content for file: %s (Repo ID: %d, Branch: %s)", fileInfo.Path, id, repo.Branch)
 		// Add a timeout to individual file fetches?
 		fileCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // 30-second timeout per file
-		content, err := s.GithubClient.GetFileContent(fileCtx, repo.Owner, repo.RepoName, fileInfo.Path)
+		content, err := s.GithubClient.GetFileContent(fileCtx, repo.Owner, repo.RepoName, fileInfo.Path, repo.Branch)
 		cancel() // Release context resources promptly
 
 		if err != nil {
-			log.Printf("Error getting file content for %s (Repo ID: %d): %v", fileInfo.Path, id, err)
+			log.Printf("Error getting file content for %s (Repo ID: %d, Branch: %s): %v", fileInfo.Path, id, repo.Branch, err)
 			// Decide whether to fail the whole sync or just skip this file
 			// For now, fail the whole sync on any file error
-			_ = s.Store.UpdateSyncStatus(ctx, id, "failed", fmt.Errorf("failed to get content for file '%s': %w", fileInfo.Path, err))
+			_ = s.Store.UpdateSyncStatus(ctx, id, "failed", fmt.Errorf("failed to get content for file '%s' (branch: %s): %w", fileInfo.Path, repo.Branch, err))
 			return err
 		}
 

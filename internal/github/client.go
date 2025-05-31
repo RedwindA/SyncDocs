@@ -82,32 +82,36 @@ type FileInfo struct {
 
 // GetRepoContentsRecursive fetches all file entries recursively starting from a given path.
 // It returns a flat list of FileInfo for files only.
-func (c *Client) GetRepoContentsRecursive(ctx context.Context, owner, repo, path string) ([]FileInfo, error) {
+func (c *Client) GetRepoContentsRecursive(ctx context.Context, owner, repo, path string, branch string) ([]FileInfo, error) {
 	var allFiles []FileInfo
 
 	queue := []string{path} // Use a queue for breadth-first traversal, though depth-first works too
+
+	var opts *github.RepositoryContentGetOptions
+	if branch != "" {
+		opts = &github.RepositoryContentGetOptions{Ref: branch}
+	}
 
 	for len(queue) > 0 {
 		currentPath := queue[0]
 		queue = queue[1:]
 
 		// Get contents of the current directory path
-		// Note: Using default branch if no ref is specified. Consider adding ref/branch parameter if needed.
-		_, dirContents, _, err := c.Repositories.GetContents(ctx, owner, repo, currentPath, nil)
+		_, dirContents, _, err := c.Repositories.GetContents(ctx, owner, repo, currentPath, opts)
 		if err != nil {
 			// Handle common errors like 404 Not Found gracefully
 			var ghErr *github.ErrorResponse
 			if errors.As(err, &ghErr) && ghErr.Response.StatusCode == http.StatusNotFound {
-				log.Printf("Warning: Path not found in repo %s/%s: %s", owner, repo, currentPath)
+				log.Printf("Warning: Path not found in repo %s/%s (branch: %s): %s", owner, repo, branch, currentPath)
 				continue // Skip this path if not found
 			}
-			log.Printf("Error getting contents for %s/%s path %s: %v", owner, repo, currentPath, err)
-			return nil, fmt.Errorf("failed to get contents for path '%s': %w", currentPath, err)
+			log.Printf("Error getting contents for %s/%s path %s (branch: %s): %v", owner, repo, currentPath, branch, err)
+			return nil, fmt.Errorf("failed to get contents for path '%s' (branch: %s): %w", currentPath, branch, err)
 		}
 
 		if dirContents == nil {
 			// This might happen if the path points directly to a file initially, handle it
-			fileContent, _, _, err := c.Repositories.GetContents(ctx, owner, repo, currentPath, nil)
+			fileContent, _, _, err := c.Repositories.GetContents(ctx, owner, repo, currentPath, opts)
 			if err == nil && fileContent != nil && fileContent.GetType() == "file" {
 				allFiles = append(allFiles, FileInfo{Path: *fileContent.Path, SHA: *fileContent.SHA})
 				continue // Processed the single file path
@@ -140,29 +144,55 @@ func (c *Client) GetRepoContentsRecursive(ctx context.Context, owner, repo, path
 
 
 // GetFileContent fetches the raw content of a specific file using its path.
-func (c *Client) GetFileContent(ctx context.Context, owner, repo, path string) (string, error) {
+func (c *Client) GetFileContent(ctx context.Context, owner, repo, path string, branch string) (string, error) {
+	var opts *github.RepositoryContentGetOptions
+	if branch != "" {
+		opts = &github.RepositoryContentGetOptions{Ref: branch}
+	}
+
 	// GetContents can retrieve file content directly for smaller files.
 	// For larger files, GetBlob might be necessary, but GetContents is simpler.
-	fileContent, _, _, err := c.Repositories.GetContents(ctx, owner, repo, path, nil)
+	fileContent, _, _, err := c.Repositories.GetContents(ctx, owner, repo, path, opts)
 	if err != nil {
-		log.Printf("Error getting file content for %s/%s path %s: %v", owner, repo, path, err)
+		log.Printf("Error getting file content for %s/%s path %s (branch: %s): %v", owner, repo, path, branch, err)
 		// Handle 404 specifically
 		var ghErr *github.ErrorResponse
 		if errors.As(err, &ghErr) && ghErr.Response.StatusCode == http.StatusNotFound {
-			return "", fmt.Errorf("file not found: %s", path)
+			return "", fmt.Errorf("file not found: %s (branch: %s)", path, branch)
 		}
-		return "", fmt.Errorf("failed to get file content for '%s': %w", path, err)
+		return "", fmt.Errorf("failed to get file content for '%s' (branch: %s): %w", path, branch, err)
 	}
 
 	if fileContent == nil || fileContent.GetType() != "file" {
-		return "", fmt.Errorf("path is not a file: %s", path)
+		return "", fmt.Errorf("path is not a file: %s (branch: %s)", path, branch)
 	}
 
 	content, err := fileContent.GetContent()
 	if err != nil {
-		log.Printf("Error decoding file content for %s: %v", path, err)
-		return "", fmt.Errorf("failed to decode file content for '%s': %w", path, err)
+		log.Printf("Error decoding file content for %s (branch: %s): %v", path, branch, err)
+		return "", fmt.Errorf("failed to decode file content for '%s' (branch: %s): %w", path, branch, err)
 	}
 
 	return content, nil
+}
+
+// GetDefaultBranch fetches the default branch name for a given repository.
+func (c *Client) GetDefaultBranch(ctx context.Context, owner, repo string) (string, error) {
+	repoInfo, _, err := c.Client.Repositories.Get(ctx, owner, repo)
+	if err != nil {
+		// Handle common errors like 404 Not Found gracefully
+		var ghErr *github.ErrorResponse
+		if errors.As(err, &ghErr) && ghErr.Response.StatusCode == http.StatusNotFound {
+			return "", fmt.Errorf("repository %s/%s not found when trying to get default branch: %w", owner, repo, err)
+		}
+		log.Printf("Error getting repository info for %s/%s to find default branch: %v", owner, repo, err)
+		return "", fmt.Errorf("failed to get repository info for %s/%s: %w", owner, repo, err)
+	}
+
+	if repoInfo == nil || repoInfo.DefaultBranch == nil || *repoInfo.DefaultBranch == "" {
+		log.Printf("Repository info or default branch is nil/empty for %s/%s", owner, repo)
+		return "", fmt.Errorf("could not determine default branch for repository %s/%s", owner, repo)
+	}
+
+	return *repoInfo.DefaultBranch, nil
 }

@@ -14,20 +14,23 @@ import (
 	// "github.com/jackc/pgx/v5" // Removed unused import
 
 	"syncdocs/internal/database"
-	"syncdocs/internal/syncer" // Import syncer
+	gh "syncdocs/internal/github" // Import github client
+	"syncdocs/internal/syncer"   // Import syncer
 )
 
 // API holds dependencies for API handlers.
 type API struct {
-	Store  *database.RepositoryStore
-	Syncer *syncer.Syncer // Add Syncer dependency
+	Store        *database.RepositoryStore
+	Syncer       *syncer.Syncer // Add Syncer dependency
+	GithubClient *gh.Client     // Add GithubClient dependency
 }
 
 // NewAPI creates a new API instance with dependencies.
-func NewAPI(store *database.RepositoryStore, syncer *syncer.Syncer) *API {
+func NewAPI(store *database.RepositoryStore, syncer *syncer.Syncer, githubClient *gh.Client) *API {
 	return &API{
-		Store:  store,
-		Syncer: syncer, // Assign Syncer
+		Store:        store,
+		Syncer:       syncer,       // Assign Syncer
+		GithubClient: githubClient, // Assign GithubClient
 	}
 }
 
@@ -61,7 +64,25 @@ func (a *API) CreateRepositoryHandler(c *gin.Context) {
 	}
 	payload.Extensions = strings.Join(validExtensions, ",") // Use cleaned extensions
 
-	repo, err := a.Store.CreateRepository(c.Request.Context(), payload)
+	// Determine the branch to store
+	branchToStore := payload.Branch
+	if branchToStore == "" {
+		owner, repoName, err := gh.ParseRepoURL(payload.URL)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid repository URL: " + err.Error()})
+			return
+		}
+		defaultBranch, err := a.GithubClient.GetDefaultBranch(c.Request.Context(), owner, repoName)
+		if err != nil {
+			log.Printf("Error getting default branch for %s/%s: %v", owner, repoName, err)
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to determine default branch for repository: " + err.Error()})
+			return
+		}
+		branchToStore = defaultBranch
+		log.Printf("No branch provided for %s, using default branch: %s", payload.URL, branchToStore)
+	}
+
+	repo, err := a.Store.CreateRepository(c.Request.Context(), payload, branchToStore)
 	if err != nil {
 		// Check for specific "already exists" error
 		if strings.Contains(err.Error(), "already exists") {
@@ -75,15 +96,15 @@ func (a *API) CreateRepositoryHandler(c *gin.Context) {
 
 	// Trigger initial sync in the background
 	go func(repoID int) {
-		log.Printf("Triggering initial sync for newly created repository ID: %d", repoID)
+		log.Printf("Triggering initial sync for newly created repository ID: %d (branch: %s)", repoID, repo.Branch)
 		// Use context.Background for the background task
 		err := a.Syncer.SyncRepositoryByID(context.Background(), repoID)
 		if err != nil {
-			log.Printf("Error during initial sync for repo ID %d: %v", repoID, err)
+			log.Printf("Error during initial sync for repo ID %d (branch: %s): %v", repoID, repo.Branch, err)
 			// Note: Status might already be 'failed' if SyncRepositoryByID updated it.
 			// We could potentially update status here again, but it might conflict.
 		} else {
-			log.Printf("Initial sync completed for repo ID %d.", repoID)
+			log.Printf("Initial sync completed for repo ID %d (branch: %s).", repoID, repo.Branch)
 		}
 	}(repo.ID) // Pass the new repo ID to the goroutine
 
@@ -93,6 +114,7 @@ func (a *API) CreateRepositoryHandler(c *gin.Context) {
 		URL:            repo.URL,
 		DocsPath:       repo.DocsPath,
 		Extensions:     repo.Extensions,
+		Branch:         repo.Branch, // Add branch to response
 		LastSyncStatus: repo.LastSyncStatus,
 		LastSyncTime:   repo.LastSyncTime,
 		LastSyncError:  repo.LastSyncError.String, // Convert NullString
@@ -189,6 +211,7 @@ func (a *API) UpdateRepositoryHandler(c *gin.Context) {
 		URL:            repo.URL,
 		DocsPath:       repo.DocsPath,
 		Extensions:     repo.Extensions,
+		Branch:         repo.Branch, // Add branch to response
 		LastSyncStatus: repo.LastSyncStatus,
 		LastSyncTime:   repo.LastSyncTime,
 		LastSyncError:  repo.LastSyncError.String,

@@ -5,13 +5,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"syncdocs/internal/database"
-	"syncdocs/internal/syncer" // Import syncer
+	gh "syncdocs/internal/github" // Import github client
+	"syncdocs/internal/syncer"   // Import syncer
 )
 
 // RegisterRoutes sets up the API routes for the application.
-func RegisterRoutes(router *gin.RouterGroup, store *database.RepositoryStore, syncer *syncer.Syncer) { // Add syncer parameter
+func RegisterRoutes(router *gin.RouterGroup, store *database.RepositoryStore, syncer *syncer.Syncer, githubClient *gh.Client) { // Add githubClient parameter
 	// Create API instance with dependencies
-	apiHandler := NewAPI(store, syncer) // Pass syncer
+	apiHandler := NewAPI(store, syncer, githubClient) // Pass syncer and githubClient
 
 	// Repository routes
 	repoRoutes := router.Group("/repositories")

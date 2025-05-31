@@ -63,6 +63,7 @@ export interface RepositoryListItem {
   url: string;
   docs_path: string;
   extensions: string;
+  branch?: string; // Add branch, optional for list items
   last_sync_status: string;
   // Update last_sync_time to match the actual JSON structure from sql.NullTime
   last_sync_time: { Time: string; Valid: boolean; } | null;
@@ -73,16 +74,18 @@ export interface RepositoryListItem {
 export interface Repository extends RepositoryListItem {
     owner: string;
     repo_name: string;
+    branch: string; // Add branch, should be present for full repository details
     aggregated_content: string | null;
     created_at: string; // ISO string
-}
+   }
 
 
 export interface RepositoryCreatePayload {
   url: string;
   docs_path: string;
   extensions: string;
-}
+  branch?: string; // Optional: User can leave empty to use default
+ }
 
 export interface RepositoryUpdatePayload {
   docs_path: string;
